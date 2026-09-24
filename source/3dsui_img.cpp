@@ -64,7 +64,7 @@ static ImageCacheReader thumbReader;
 
 static const u16 thumbMaxWidth = 128;
 static const u16 thumbMaxHeight = 128;
-static const size_t thumbMaxCount = 1024;
+static const size_t thumbMaxCount = 1500;
 static const size_t thumbPixelBufferSize = thumbMaxWidth * thumbMaxHeight * sizeof(u16);
 
 
