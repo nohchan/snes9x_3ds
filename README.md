@@ -171,6 +171,7 @@ See:
 
 * The Snes9x team for the SNES emulator core, and the libretro Snes9x core maintainers for ongoing reference work
 * bubble2k, original author of [snes9x_3ds](https://github.com/bubble2k16/snes9x_3ds), for creating the excellent base this fork builds on
+* matbo87 for his [snes9x_3ds fork](https://github.com/matbo87/snes9x_3ds), for creating the excellent base this fork builds on
 * Wyatt-James for his [snes9x_3ds fork](https://github.com/Wyatt-James/snes9x_3ds); this fork adapts a few safety, audio and stability fixes from his work
 * ramzinouri's [snes9x_3ds fork](https://github.com/ramzinouri/snes9x_3ds) inspired the image border/background and theme support
 * willjow's [snes9x_3ds fork](https://github.com/willjow/snes9x_3ds) revived the project after development had gone quiet
