@@ -52,6 +52,7 @@ Notes:
 
 * The repository follows a 1G1R-style selection.
 * Naming is strict No-Intro style for matching.
+* 🔵 **title.cache Supports 1,500 sheets**
 
 ## Building from source
 
