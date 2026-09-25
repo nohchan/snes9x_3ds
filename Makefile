@@ -64,7 +64,7 @@ APP_PRODUCT_CODE  := $(shell echo $(APP_PRODUCT_CODE) | cut -c1-16)
 APP_UNIQUE_ID     := $(shell echo $(APP_UNIQUE_ID) | cut -c1-7)
 APP_VERSION_MAJOR := $(shell echo $(APP_VERSION_MAJOR) | cut -c1-3)
 APP_VERSION_MINOR := $(shell echo $(APP_VERSION_MINOR) | cut -c1-3)
-APP_VERSION_MICRO := $(shell echo $(APP_VERSION_MICRO) | cut -c1-3)+
+APP_VERSION_MICRO := $(shell echo $(APP_VERSION_MICRO) | cut -c1-3)
 APP_ROMFS         := $(TOPDIR)/$(ROMFS)
 
 #---------------------------------------------------------------------------------
