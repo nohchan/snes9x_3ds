@@ -5,7 +5,9 @@
 
 #include <cstdio>
 #include <cstring>
+extern "C" {
 #include <3ds/font.h>
+}
 
 #include "snes9x.h"
 
