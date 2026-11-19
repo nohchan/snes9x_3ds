@@ -324,7 +324,7 @@ static int ui3dsSystemGlyphWidth(u32 codePoint)
 {
     if (!systemFont || codePoint < 0x80) return fontWidth[(u8)codePoint];
     int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
-    return glyph < 0 ? fontWidth[(u8)'?'] : 13;
+    return glyph < 0 ? fontWidth[(u8)'?'] : 14;
 }
 
 static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u32 codePoint)
