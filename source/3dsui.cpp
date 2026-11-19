@@ -324,7 +324,7 @@ static int ui3dsSystemGlyphWidth(u32 codePoint)
 {
     if (!systemFont || codePoint < 0x80) return fontWidth[(u8)codePoint];
     int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
-    return glyph < 0 ? fontWidth[(u8)'?'] : 12;
+    return glyph < 0 ? fontWidth[(u8)'?'] : 13;
 }
 
 static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u32 codePoint)
@@ -344,7 +344,7 @@ static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u3
     int srcX = (glyphInSheet % tglp->nRows) * (tglp->cellWidth + 1) + 1;
     int srcY = (glyphInSheet / tglp->nRows) * (tglp->cellHeight + 1) + 1;
     const u8 *sheet = (const u8 *)fontGetGlyphSheetTex(systemFont, sheetIndex);
-    const int dstWidth = 12;
+    const int dstWidth = 13;
     for (int dy = 0; dy < fontHeight; dy++) {
         int sy = srcY + dy * tglp->cellHeight / fontHeight;
         for (int dx = 0; dx < dstWidth; dx++) {
