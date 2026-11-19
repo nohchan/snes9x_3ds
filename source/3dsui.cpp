@@ -345,8 +345,8 @@ static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u3
     int srcY = (glyphInSheet / tglp->nRows) * (tglp->cellHeight + 1) + 1;
     const u8 *sheet = (const u8 *)fontGetGlyphSheetTex(systemFont, sheetIndex);
     const int advanceWidth = ui3dsSystemGlyphWidth(codePoint);
-    const int dstWidth = 11;
-    const int dstHeight = 10;
+    const int dstWidth = 10;
+    const int dstHeight = 9;
     const int offsetX = (advanceWidth - dstWidth) / 2;
     const int offsetY = (fontHeight - dstHeight) / 2;
     for (int dy = 0; dy < dstHeight; dy++) {
