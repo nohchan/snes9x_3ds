@@ -1,3 +1,4 @@
+/Users/nohchan/.zprofile:6: no such file or directory: /Users/nohchan/.brew/bin/brew
 //=============================================================================
 // Basic user interface framework for low-level drawing operations to
 // the bottom screen.
@@ -5,6 +6,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <3ds/font.h>
 
 #include "snes9x.h"
 
@@ -31,6 +33,34 @@ static u8 *fontBitmapArray[] = { fontTempestaBitmap, fontRondaBitmap, fontArialB
 static u8 *fontBitmap;
 static u8 *fontWidth;
 static const int fontHeight = FONT_HEIGHT;
+static CFNT_s *systemFont;
+
+static bool ui3dsDecodeUtf8At(const char *text, int length, int *offset, u32 *codePoint)
+{
+    int i = *offset;
+    u8 lead = (u8)text[i];
+    int extra = (lead >= 0xC2 && lead <= 0xDF) ? 1
+              : (lead >= 0xE0 && lead <= 0xEF) ? 2
+              : (lead >= 0xF0 && lead <= 0xF4) ? 3 : 0;
+    if (extra == 0 || i + extra >= length) {
+        *codePoint = lead;
+        *offset = i + 1;
+        return false;
+    }
+    u32 cp = lead & (extra == 1 ? 0x1F : extra == 2 ? 0x0F : 0x07);
+    for (int j = 1; j <= extra; j++) {
+        u8 tail = (u8)text[i + j];
+        if ((tail & 0xC0) != 0x80) {
+            *codePoint = lead;
+            *offset = i + 1;
+            return false;
+        }
+        cp = (cp << 6) | (tail & 0x3F);
+    }
+    *codePoint = cp;
+    *offset = i + extra + 1;
+    return true;
+}
 
 static int translateX = 0;
 static int translateY = 0;
@@ -51,6 +81,7 @@ u8* g_texUploadBuffer;
 
 void ui3dsPrepare()
 {
+    systemFont = fontGetSystemFont();
     for (int a = 0; a <= MAX_ALPHA; a++) {
         alphas4Bit[a] = (a * 15 + 4) >> 3;
     }
@@ -280,6 +311,56 @@ void ui3dsDrawRGB565_CharToFramebuffer(u16 *frameBuffer, int x, int y, int color
     }
 }
 
+static u8 ui3dsReadSystemGlyphPixel(const u8 *sheet, int sheetWidth, int x, int y)
+{
+    int bitIndex = (x & 1) + ((x >> 1 & 1) * 4) + ((x >> 2 & 1) * 16) + ((x >> 3) * 64)
+                 + ((y & 1) * 2) + ((y >> 1 & 1) * 8) + ((y >> 2 & 1) * 32)
+                 + ((y >> 3) * sheetWidth * 8);
+    return (sheet[bitIndex >> 1] >> ((bitIndex & 1) * 4)) & 0x0F;
+}
+
+static int ui3dsSystemGlyphWidth(u32 codePoint)
+{
+    if (!systemFont || codePoint < 0x80) return fontWidth[(u8)codePoint];
+    int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
+    return glyph < 0 ? fontWidth[(u8)'?'] : 12;
+}
+
+static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u32 codePoint)
+{
+    if (!systemFont || codePoint < 0x80) return 0;
+    int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
+    TGLP_s *tglp = fontGetGlyphInfo(systemFont);
+    if (glyph < 0 || !tglp || tglp->sheetFmt != GPU_A4 || !tglp->sheetData
+        || !tglp->nRows || !tglp->nLines || !tglp->cellWidth || !tglp->cellHeight)
+        return 0;
+    charWidthInfo_s *info = fontGetCharWidthInfo(systemFont, glyph);
+    if (!info || !info->glyphWidth) return 0;
+    int perSheet = tglp->nRows * tglp->nLines;
+    int sheetIndex = glyph / perSheet;
+    if (sheetIndex >= tglp->nSheets) return 0;
+    int glyphInSheet = glyph % perSheet;
+    int srcX = (glyphInSheet % tglp->nRows) * (tglp->cellWidth + 1) + 1;
+    int srcY = (glyphInSheet / tglp->nRows) * (tglp->cellHeight + 1) + 1;
+    const u8 *sheet = (const u8 *)fontGetGlyphSheetTex(systemFont, sheetIndex);
+    const int dstWidth = 12;
+    for (int dy = 0; dy < fontHeight; dy++) {
+        int sy = srcY + dy * tglp->cellHeight / fontHeight;
+        for (int dx = 0; dx < dstWidth; dx++) {
+            int px = x + dx, py = y + dy;
+            if (px < viewportX1 || px >= viewportX2 || py < viewportY1 || py >= viewportY2)
+                continue;
+            int sx = srcX + dx * info->glyphWidth / dstWidth;
+            int alpha = (ui3dsReadSystemGlyphPixel(sheet, tglp->sheetWidth, sx, sy) * MAX_ALPHA + 7) / 15;
+            if (!alpha) continue;
+            ui3dsSetPixelInline(frameBuffer, px, py,
+                alpha == MAX_ALPHA ? color565 : fgAlpha565[alpha]
+                    + ui3dsApplyAlphaToColour565(ui3dsGetPixelInline(frameBuffer, px, py), MAX_ALPHA - alpha));
+        }
+    }
+    return dstWidth;
+}
+
 // Upscaled texture text blends two source pixels per axis. 0 matches bilinear blur;
 // 1 narrows the filter for crisper enlarged glyphs.
 static const float UI_TEXT_UPSCALE_SHARPNESS = 0.5f;
@@ -413,16 +494,23 @@ int ui3dsGetStringWidth(const char *s, int startPos, int endPos, int destHeight)
 {
     float scale = (float)ui3dsClampDestHeight(destHeight) / fontHeight;
     int totalWidth = 0;
-    for (int i = startPos; i <= endPos; i++)
+    int length = strlen(s);
+    for (int i = startPos; i <= endPos && i < length; )
     {
-        u8 c = s[i];
-        if (c == 0)
-            break;
-
-        if (c == '\n')
-            c = ' ';
-
-        totalWidth += ui3dsCharAdvance(c, scale);
+        u32 cp;
+        int next = i;
+        bool validUtf8 = ui3dsDecodeUtf8At(s, length, &next, &cp);
+        if (!validUtf8) {
+            u8 c = (u8)cp;
+            if (c == '\n') c = ' ';
+            totalWidth += ui3dsCharAdvance(c, scale);
+        } else if (cp == '\n') {
+            totalWidth += ui3dsCharAdvance(' ', scale);
+        } else {
+            totalWidth += (int)(ui3dsSystemGlyphWidth(cp) * scale + 0.5f);
+        }
+        if (next - 1 > endPos) break;
+        i = next;
     }
     return totalWidth;
 }
@@ -617,10 +705,22 @@ int ui3dsDrawRGB565_StringToFramebuffer(gfxScreen_t targetScreen, int absoluteX,
             fgAlpha565Color = color565;
         }
 
-        for (int i = startPos; i <= endPos; i++)
+        int length = strlen(buffer);
+        for (int i = startPos; i <= endPos && i < length; )
         {
-            u8 c = buffer[i];
-            if (c == 0) break;
+            u32 cp;
+            int next = i;
+            bool validUtf8 = ui3dsDecodeUtf8At(buffer, length, &next, &cp);
+            if (validUtf8 && cp >= 0x80) {
+                int glyphWidth = ui3dsDrawSystemGlyph(fb, x, y, color565, cp);
+                if (glyphWidth > 0) {
+                    x += glyphWidth;
+                    i = next;
+                    continue;
+                }
+                cp = '?';
+            }
+            u8 c = (u8)cp;
 
             if (c == '\n') {
                 c = ' ';
@@ -629,6 +729,7 @@ int ui3dsDrawRGB565_StringToFramebuffer(gfxScreen_t targetScreen, int absoluteX,
             if (c != ' ')
                 ui3dsDrawRGB565_CharToFramebuffer(fb, x, y, color565, c);
             x += fontWidth[c];
+            i = next;
         }
     }
 
