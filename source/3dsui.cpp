@@ -344,11 +344,15 @@ static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u3
     int srcX = (glyphInSheet % tglp->nRows) * (tglp->cellWidth + 1) + 1;
     int srcY = (glyphInSheet / tglp->nRows) * (tglp->cellHeight + 1) + 1;
     const u8 *sheet = (const u8 *)fontGetGlyphSheetTex(systemFont, sheetIndex);
-    const int dstWidth = 13;
-    for (int dy = 0; dy < fontHeight; dy++) {
-        int sy = srcY + dy * tglp->cellHeight / fontHeight;
+    const int advanceWidth = ui3dsSystemGlyphWidth(codePoint);
+    const int dstWidth = 11;
+    const int dstHeight = 10;
+    const int offsetX = (advanceWidth - dstWidth) / 2;
+    const int offsetY = (fontHeight - dstHeight) / 2;
+    for (int dy = 0; dy < dstHeight; dy++) {
+        int sy = srcY + dy * tglp->cellHeight / dstHeight;
         for (int dx = 0; dx < dstWidth; dx++) {
-            int px = x + dx, py = y + dy;
+            int px = x + offsetX + dx, py = y + offsetY + dy;
             if (px < viewportX1 || px >= viewportX2 || py < viewportY1 || py >= viewportY2)
                 continue;
             int sx = srcX + dx * info->glyphWidth / dstWidth;
@@ -359,7 +363,7 @@ static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u3
                     + ui3dsApplyAlphaToColour565(ui3dsGetPixelInline(frameBuffer, px, py), MAX_ALPHA - alpha));
         }
     }
-    return dstWidth;
+    return advanceWidth;
 }
 
 // Upscaled texture text blends two source pixels per axis. 0 matches bilinear blur;
