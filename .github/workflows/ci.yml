@@ -27,3 +27,13 @@ jobs:
 
       - name: Build project
         run: make release
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: snes9x_3ds-build
+          path: |
+            output/snes9x_3ds.3dsx
+            output/snes9x_3ds.cia
+          if-no-files-found: error
+          retention-days: 14
