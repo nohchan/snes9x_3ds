@@ -1,4 +1,3 @@
-/Users/nohchan/.zprofile:6: no such file or directory: /Users/nohchan/.brew/bin/brew
 //=============================================================================
 // Basic user interface framework for low-level drawing operations to
 // the bottom screen.

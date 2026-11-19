@@ -1,4 +1,3 @@
-/Users/nohchan/.zprofile:6: no such file or directory: /Users/nohchan/.brew/bin/brew
 #include <algorithm>
 #include <array>
 #include <cstdlib>
