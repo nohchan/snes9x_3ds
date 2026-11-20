@@ -83,6 +83,7 @@ u8* g_texUploadBuffer;
 
 void ui3dsPrepare()
 {
+    fontEnsureMapped();
     systemFont = fontGetSystemFont();
     for (int a = 0; a <= MAX_ALPHA; a++) {
         alphas4Bit[a] = (a * 15 + 4) >> 3;
