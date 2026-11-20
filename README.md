@@ -6,10 +6,7 @@
 ## 現在対応したこと
 * タイトルロゴを１５００個まで対応させた
 * 私用と分かるようにバージョン表記に「＋」をつけた
-
-
-## 現在修正中は
-* ゲーム選択画面を日本語ファイルでも表示出来るようにする
+* ゲーム選択画面を日本語ファイルでも表示出来るようになった
 
 
 
@@ -21,7 +18,7 @@
     <td width="50%" align="center"><img src="screenshots/retroarch-pause-screen.png" alt="Super Mario World" valign="bottom"></td>
   </tr>
   <tr>
-    <td valign="top" width="50%" align="center">Start screen, "Game Title" option enabled</td>
+    <td valign="top" width="50%" align="center">Start screen, 日本語ファイル名表示</td>
     <td valign="top" width="50%" align="center">Pause screen, per-game overlay enabled</td>
   </tr>
   <tr><td colspan="2"></td></tr>
