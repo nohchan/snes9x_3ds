@@ -348,8 +348,8 @@ static float ui3dsSampleSystemGlyphBilinear(const u8 *sheet, int sheetWidth,
 static inline bool ui3dsUseSystemFont(u32 codePoint)
 {
     if (!systemFont) return false;
-    // 半角スペース〜チルダ（英数字・記号）および 0xA0以上の多言語文字をシステムフォントで描画
-    return (codePoint >= 0x20 && codePoint <= 0x7E) || codePoint >= 0xA0;
+    // 0x80〜0xFFの特殊アイコン（A/B/X/Yボタンや矢印）を除外し、英数字(0x20-0x7E)と日本語等(0x100以上)のみシステムフォントを使う
+    return (codePoint >= 0x20 && codePoint <= 0x7E) || codePoint >= 0x100;
 }
 
 // システムフォント本来の文字送り幅（プロポーショナル幅）を返す

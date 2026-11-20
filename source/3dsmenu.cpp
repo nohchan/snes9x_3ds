@@ -448,7 +448,7 @@ void menu3dsDrawItems(
             if (currentTab->SelectedItemIndex == i)
                 color = selectedItemTextColor;
 
-            ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, 160, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
+            ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, 130, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
 
             if (!currentTab->MenuItems[i].PickerItems.empty() && currentTab->MenuItems[i].GaugeMinValue)
             {
@@ -468,12 +468,12 @@ void menu3dsDrawItems(
                     char iconText[2] = { static_cast<char>(UI_ICON_PICKER), '\0' };
 
                     const int right = settings3DS.SecondScreenWidth - horizontalPadding;
-                    const int iconWidth = ui3dsGetStringWidth(iconText) + 1;
-                    const int gap = 2;
+                    const int iconWidth = ui3dsGetStringWidth(iconText) + 3;
+                    const int gap = 3;
                     const int valueRight = right - iconWidth - gap;
 
                     ui3dsDrawStringWithNoWrapping(
-                        settings3DS.SecondScreen, 160, y, valueRight, y + fontHeight,
+                        settings3DS.SecondScreen, 130, y, valueRight, y + fontHeight,
                         color, HALIGN_RIGHT, selectedText);
 
                     color = normalItemDescriptionTextColor;
