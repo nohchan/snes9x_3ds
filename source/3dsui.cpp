@@ -566,15 +566,12 @@ int ui3dsGetStringWidth(const char *s, int startPos, int endPos, int destHeight)
     {
         u32 cp;
         int next = i;
-        bool validUtf8 = ui3dsDecodeUtf8At(s, length, &next, &cp);
-        if (!validUtf8) {
-            u8 c = (u8)cp;
-            if (c == '\n') c = ' ';
-            totalWidth += ui3dsCharAdvance(c, scale);
-        } else if (cp == '\n') {
-            totalWidth += ui3dsCharAdvance(' ', scale);
-        } else {
+        ui3dsDecodeUtf8At(s, length, &next, &cp);
+        if (cp == '\n') cp = ' ';
+        if (ui3dsUseSystemFont(cp)) {
             totalWidth += (int)(ui3dsSystemGlyphWidth(cp) * scale + 0.5f);
+        } else {
+            totalWidth += ui3dsCharAdvance((u8)cp, scale);
         }
         if (next - 1 > endPos) break;
         i = next;
