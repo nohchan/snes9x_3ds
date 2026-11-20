@@ -587,16 +587,25 @@ void ui3dsEllipsize(const char *src, char *dst, size_t dstSize, int maxWidth, in
     int ellipsisWidth = ui3dsGetStringWidth(ellipsis, 0, 0xffff, destHeight);
     float scale = (float)ui3dsClampDestHeight(destHeight) / fontHeight;
 
-    // Find the ellipsis cutoff without truncating text that still fits.
+    int length = (int)strlen(src);
     int width = 0;
     int keep = -1;
-    for (int i = 0; src[i]; i++) {
-        u8 c = src[i] == '\n' ? ' ' : (u8)src[i];
-        width += ui3dsCharAdvance(c, scale);
+    for (int i = 0; i < length; ) {
+        u32 cp;
+        int next = i;
+        ui3dsDecodeUtf8At(src, length, &next, &cp);
+        if (cp == '\n') cp = ' ';
+
+        int charW = ui3dsUseSystemFont(cp)
+            ? (int)(ui3dsSystemGlyphWidth(cp) * scale + 0.5f)
+            : ui3dsCharAdvance((u8)cp, scale);
+
+        width += charW;
         if (keep < 0 && width + ellipsisWidth > maxWidth)
             keep = i;
         if (width > maxWidth)
             break;
+        i = next;
     }
 
     if (width <= maxWidth) {
@@ -604,10 +613,15 @@ void ui3dsEllipsize(const char *src, char *dst, size_t dstSize, int maxWidth, in
         return;
     }
 
-    if (keep + 1 >= static_cast<int>(dstSize))
-        keep = static_cast<int>(dstSize) - 2;
+    int ellipsisLen = (int)strlen(ellipsis);
+    if (keep + ellipsisLen >= static_cast<int>(dstSize))
+        keep = static_cast<int>(dstSize) - ellipsisLen - 1;
     if (keep < 0)
         keep = 0;
+
+    // バッファ切り詰め時にUTF-8の継続バイト(0x80〜0xBF)の途中で切れないよう文字先頭まで戻す
+    while (keep > 0 && (((u8)src[keep] & 0xC0) == 0x80))
+        keep--;
 
     memcpy(dst, src, keep);
     snprintf(dst + keep, dstSize - keep, "%s", ellipsis);
@@ -823,21 +837,32 @@ int ui3dsWrapLines(const char *buffer, int maxWidth, int *lineStart, int *lineEn
     int lineWidth = 0;
     for (int i = 0; i < slen; )
     {
-        bool forceBreak = buffer[i] == '\n';
+        u32 cp;
+        int next = i;
+        ui3dsDecodeUtf8At(buffer, slen, &next, &cp);
+        int charWidth = ui3dsUseSystemFont(cp) ? ui3dsSystemGlyphWidth(cp) : fontWidth[(u8)cp];
+
+        bool forceBreak = (cp == '\n');
         if (forceBreak)
             curEndPos = i - 1;          // empty range at line start = blank line
         else if (i != curStartPos)
         {
-            if (buffer[i] == ' ' && i > 0 && buffer[i-1] != ' ')
+            if (cp == ' ' && i > 0 && buffer[i - 1] != ' ')
                 curEndPos = i - 1;
             // Break after a dash or slash only if it still fits, else it gets clipped.
-            else if ((buffer[i] == '-' || buffer[i] == '/') &&
-                     lineWidth + fontWidth[(unsigned char)buffer[i]] <= maxWidth)
+            else if ((cp == '-' || cp == '/') && lineWidth + charWidth <= maxWidth)
                 curEndPos = i;
+            // For multi-byte characters (e.g. Japanese), allow line break at any character boundary.
+            else if (cp >= 0x100 && lineWidth + charWidth <= maxWidth)
+                curEndPos = next - 1;
         }
-        lineWidth += fontWidth[(unsigned char)buffer[i]];
+        lineWidth += charWidth;
         if (forceBreak || lineWidth > maxWidth)
         {
+            // Prevent infinite loop if a single character exceeds maxWidth.
+            if (curEndPos < curStartPos)
+                curEndPos = next - 1;
+
             lineStart[strLineCount] = curStartPos;
             lineEnd[strLineCount] = curEndPos;
             strLineCount++;
@@ -851,10 +876,10 @@ int ui3dsWrapLines(const char *buffer, int maxWidth, int *lineStart, int *lineEn
             else
             {
                 i = curEndPos + 1;
-                while (buffer[i] == ' ')
+                while (i < slen && buffer[i] == ' ')
                     i++;
                 // The wrap already ended this line, so a \n here adds no blank line.
-                if (buffer[i] == '\n')
+                if (i < slen && buffer[i] == '\n')
                     i++;
             }
             curStartPos = i;
@@ -862,7 +887,7 @@ int ui3dsWrapLines(const char *buffer, int maxWidth, int *lineStart, int *lineEn
             lineWidth = 0;
         }
         else
-            i++;
+            i = next;
     }
 
     curEndPos = slen - 1;
