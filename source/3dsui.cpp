@@ -314,7 +314,7 @@ void ui3dsDrawRGB565_CharToFramebuffer(u16 *frameBuffer, int x, int y, int color
     }
 }
 
-static u8 ui3dsReadSystemGlyphPixel(const u8 *sheet, int sheetWidth, int x, int y)
+static inline u8 ui3dsReadSystemGlyphPixel(const u8 *sheet, int sheetWidth, int x, int y)
 {
     int bitIndex = (x & 1) + ((x >> 1 & 1) * 4) + ((x >> 2 & 1) * 16) + ((x >> 3) * 64)
                  + ((y & 1) * 2) + ((y >> 1 & 1) * 8) + ((y >> 2 & 1) * 32)
@@ -322,11 +322,44 @@ static u8 ui3dsReadSystemGlyphPixel(const u8 *sheet, int sheetWidth, int x, int 
     return (sheet[bitIndex >> 1] >> ((bitIndex & 1) * 4)) & 0x0F;
 }
 
+// バイリニア補間で滑らかにサンプリングする（0.0〜15.0）
+static float ui3dsSampleSystemGlyphBilinear(const u8 *sheet, int sheetWidth,
+                                            int srcX, int srcY, int glyphW, int cellH,
+                                            float fx, float fy)
+{
+    int x0 = (int)fx;
+    int y0 = (int)fy;
+    float wx = fx - x0;
+    float wy = fy - y0;
+
+    int x1 = x0 + 1 < glyphW ? x0 + 1 : x0;
+    int y1 = y0 + 1 < cellH  ? y0 + 1 : y0;
+
+    float p00 = (x0 >= 0 && x0 < glyphW && y0 >= 0 && y0 < cellH) ? ui3dsReadSystemGlyphPixel(sheet, sheetWidth, srcX + x0, srcY + y0) : 0.0f;
+    float p10 = (x1 >= 0 && x1 < glyphW && y0 >= 0 && y0 < cellH) ? ui3dsReadSystemGlyphPixel(sheet, sheetWidth, srcX + x1, srcY + y0) : 0.0f;
+    float p01 = (x0 >= 0 && x0 < glyphW && y1 >= 0 && y1 < cellH) ? ui3dsReadSystemGlyphPixel(sheet, sheetWidth, srcX + x0, srcY + y1) : 0.0f;
+    float p11 = (x1 >= 0 && x1 < glyphW && y1 >= 0 && y1 < cellH) ? ui3dsReadSystemGlyphPixel(sheet, sheetWidth, srcX + x1, srcY + y1) : 0.0f;
+
+    float top = p00 * (1.0f - wx) + p10 * wx;
+    float bot = p01 * (1.0f - wx) + p11 * wx;
+    return top * (1.0f - wy) + bot * wy;
+}
+
+// システムフォント本来の文字送り幅（プロポーショナル幅）を返す
 static int ui3dsSystemGlyphWidth(u32 codePoint)
 {
     if (!systemFont || codePoint < 0x80) return fontWidth[(u8)codePoint];
     int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
-    return glyph < 0 ? fontWidth[(u8)'?'] : 14;
+    if (glyph < 0) return fontWidth[(u8)'?'];
+
+    TGLP_s *tglp = fontGetGlyphInfo(systemFont);
+    charWidthInfo_s *info = fontGetCharWidthInfo(systemFont, glyph);
+    if (!tglp || !info || !tglp->cellHeight) return 14;
+
+    // mGBAと同じくらいの存在感になるよう14.5px基準でスケーリング
+    const float scale = 14.5f / (float)tglp->cellHeight;
+    int w = (int)(info->charWidth * scale + 0.5f);
+    return w > 0 ? w : 14;
 }
 
 static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u32 codePoint)
@@ -337,35 +370,57 @@ static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u3
     if (glyph < 0 || !tglp || tglp->sheetFmt != GPU_A4 || !tglp->sheetData
         || !tglp->nRows || !tglp->nLines || !tglp->cellWidth || !tglp->cellHeight)
         return 0;
+
     charWidthInfo_s *info = fontGetCharWidthInfo(systemFont, glyph);
-    if (!info || !info->glyphWidth) return 0;
+    if (!info) return 0;
+
+    const float scale = 14.5f / (float)tglp->cellHeight;
+    const int advanceWidth = (int)(info->charWidth * scale + 0.5f);
+    if (info->glyphWidth == 0) return advanceWidth > 0 ? advanceWidth : 7;
+
     int perSheet = tglp->nRows * tglp->nLines;
     int sheetIndex = glyph / perSheet;
     if (sheetIndex >= tglp->nSheets) return 0;
+
     int glyphInSheet = glyph % perSheet;
     int srcX = (glyphInSheet % tglp->nRows) * (tglp->cellWidth + 1) + 1;
     int srcY = (glyphInSheet / tglp->nRows) * (tglp->cellHeight + 1) + 1;
     const u8 *sheet = (const u8 *)fontGetGlyphSheetTex(systemFont, sheetIndex);
-    const int advanceWidth = ui3dsSystemGlyphWidth(codePoint);
-    const int dstWidth = 13;
-    const int dstHeight = 13;
-    const int offsetX = (advanceWidth - dstWidth) / 2;
-    const int offsetY = (fontHeight - dstHeight) / 2;
+
+    int dstWidth  = (int)(info->glyphWidth * scale + 0.5f);
+    int dstHeight = 15;
+    if (dstWidth < 1) dstWidth = 1;
+
+    int offsetX = (int)(info->left * scale + 0.5f);
+    int offsetY = (fontHeight - dstHeight) / 2;
+
     for (int dy = 0; dy < dstHeight; dy++) {
-        int sy = srcY + dy * tglp->cellHeight / dstHeight;
+        float fy = ((dy + 0.5f) / dstHeight) * tglp->cellHeight - 0.5f;
         for (int dx = 0; dx < dstWidth; dx++) {
-            int px = x + offsetX + dx, py = y + offsetY + dy;
+            int px = x + offsetX + dx;
+            int py = y + offsetY + dy;
             if (px < viewportX1 || px >= viewportX2 || py < viewportY1 || py >= viewportY2)
                 continue;
-            int sx = srcX + dx * info->glyphWidth / dstWidth;
-            int alpha = (ui3dsReadSystemGlyphPixel(sheet, tglp->sheetWidth, sx, sy) * MAX_ALPHA + 7) / 15;
-            if (!alpha) continue;
-            ui3dsSetPixelInline(frameBuffer, px, py,
-                alpha == MAX_ALPHA ? color565 : fgAlpha565[alpha]
-                    + ui3dsApplyAlphaToColour565(ui3dsGetPixelInline(frameBuffer, px, py), MAX_ALPHA - alpha));
+
+            float fx = ((dx + 0.5f) / dstWidth) * info->glyphWidth - 0.5f;
+            float val = ui3dsSampleSystemGlyphBilinear(sheet, tglp->sheetWidth, srcX, srcY, info->glyphWidth, tglp->cellHeight, fx, fy);
+
+            // 輪郭の半透明部分を強く引き上げてmGBAのような太い文字にする
+            float norm = val / 15.0f;
+            if (norm <= 0.05f) continue;
+            float boldAlpha = norm * 1.85f;
+            if (boldAlpha > 1.0f) boldAlpha = 1.0f;
+
+            int alpha = (int)(boldAlpha * MAX_ALPHA + 0.5f);
+            if (alpha <= 0) continue;
+
+            u16 outColor = (alpha >= MAX_ALPHA)
+                ? (u16)color565
+                : ui3dsBlendPixel565(color565, ui3dsGetPixelInline(frameBuffer, px, py), alpha);
+            ui3dsSetPixelInline(frameBuffer, px, py, outColor);
         }
     }
-    return advanceWidth;
+    return advanceWidth > 0 ? advanceWidth : dstWidth;
 }
 
 // Upscaled texture text blends two source pixels per axis. 0 matches bilinear blur;
