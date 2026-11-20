@@ -1850,7 +1850,12 @@ int fillFileMenuEntries(std::vector<SMenuItem>& fileMenu, const char *selectedIt
         char label[NAME_MAX + 1];
         const size_t prefixLen = strlen(prefix);
         const size_t maxFilenameLen = (prefixLen < sizeof(label) - 1) ? (sizeof(label) - 1 - prefixLen) : 0;
-        snprintf(label, sizeof(label), "%s%.*s", prefix, (int)maxFilenameLen, entry->Filename);
+        size_t filenameBytes = strnlen(entry->Filename, maxFilenameLen);
+        if (filenameBytes < strlen(entry->Filename)) {
+            while (filenameBytes > 0 && (static_cast<u8>(entry->Filename[filenameBytes]) & 0xC0) == 0x80)
+                filenameBytes--;
+        }
+        snprintf(label, sizeof(label), "%s%.*s", prefix, (int)filenameBytes, entry->Filename);
 
         if (selectedItemName && selectedItemName[0] != '\0') {
             if (strncmp(entry->Filename, selectedItemName, NAME_MAX) == 0) {

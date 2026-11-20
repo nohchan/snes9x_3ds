@@ -448,7 +448,7 @@ void menu3dsDrawItems(
             if (currentTab->SelectedItemIndex == i)
                 color = selectedItemTextColor;
 
-            ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, 160, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
+            ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, 130, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
 
             if (!currentTab->MenuItems[i].PickerItems.empty() && currentTab->MenuItems[i].GaugeMinValue)
             {
@@ -468,12 +468,12 @@ void menu3dsDrawItems(
                     char iconText[2] = { static_cast<char>(UI_ICON_PICKER), '\0' };
 
                     const int right = settings3DS.SecondScreenWidth - horizontalPadding;
-                    const int iconWidth = ui3dsGetStringWidth(iconText) + 1;
-                    const int gap = 2;
+                    const int iconWidth = ui3dsGetStringWidth(iconText) + 3;
+                    const int gap = 3;
                     const int valueRight = right - iconWidth - gap;
 
                     ui3dsDrawStringWithNoWrapping(
-                        settings3DS.SecondScreen, 160, y, valueRight, y + fontHeight,
+                        settings3DS.SecondScreen, 130, y, valueRight, y + fontHeight,
                         color, HALIGN_RIGHT, selectedText);
 
                     color = normalItemDescriptionTextColor;
@@ -643,9 +643,14 @@ void menu3dsDrawMenu(std::vector<SMenuTab>& menuTabs, int& currentMenuTab, int m
         }
     }
     
-    int buttonRightMargin = 5;
-    int buttonLeftMargin = 10;
-    int bottomMenuPosX = 10;
+    const int rightEdge = battX2 - battFullLevelWidth - battBorderWidth - 6;
+    const char* versionStr = settings3dsGetAppVersion("v", device3DS.isReal3DS ? "" : "e");
+    const int versionWidth = ui3dsGetStringWidth(versionStr);
+    const int buttonsMaxX = rightEdge - versionWidth - 6;
+
+    int buttonRightMargin = 3;
+    int buttonLeftMargin = 6;
+    int bottomMenuPosX = 8;
     int buttonColor = settings3DS.Theme == Setting::Theme::Original ? 0x529eeb : 0x555555;
 
     for (const auto& button : bottomMenuButtons) {
@@ -658,17 +663,16 @@ void menu3dsDrawMenu(std::vector<SMenuTab>& menuTabs, int& currentMenuTab, int m
             button.visibility == BTN_SHOW_ALWAYS ||
             (button.visibility == BTN_SHOW_OPTIONS && menu3dsHasOptions(currentMenuTab, menuTabs));
 
-        if (visible) {
+        if (visible && bottomMenuPosX + 12 < buttonsMaxX) {
             const char* label = button.label;
             char iconText[2] = { (char)button.icon, '\0' };
-            ui3dsDrawRect(bottomMenuPosX + 2, SCREEN_HEIGHT - 13, bottomMenuPosX + 9, SCREEN_HEIGHT - 5,0xffffff);
+            ui3dsDrawRect(bottomMenuPosX + 2, SCREEN_HEIGHT - 13, bottomMenuPosX + 9, SCREEN_HEIGHT - 5, 0xffffff);
             bottomMenuPosX = ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, bottomMenuPosX, SCREEN_HEIGHT - 16, bottomMenuPosX + 12, SCREEN_HEIGHT, buttonColor, HALIGN_LEFT, iconText) + buttonRightMargin;
-            bottomMenuPosX = ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, bottomMenuPosX, SCREEN_HEIGHT - 17, bottomMenuPosX + 100, SCREEN_HEIGHT, Themes[static_cast<int>(settings3DS.Theme)].menuBottomBarTextColor, HALIGN_LEFT, label) + buttonLeftMargin;
+            bottomMenuPosX = ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, bottomMenuPosX, SCREEN_HEIGHT - 17, buttonsMaxX, SCREEN_HEIGHT, Themes[static_cast<int>(settings3DS.Theme)].menuBottomBarTextColor, HALIGN_LEFT, label) + buttonLeftMargin;
         }
     }
 
-    const int rightEdge = battX2 - battFullLevelWidth - battBorderWidth - 6;
-    ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, 97, SCREEN_HEIGHT - 17, rightEdge, SCREEN_HEIGHT, Themes[static_cast<int>(settings3DS.Theme)].menuBottomBarTextColor, HALIGN_RIGHT, settings3dsGetAppVersion("v", device3DS.isReal3DS ? "" : "e"));
+    ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, buttonsMaxX, SCREEN_HEIGHT - 17, rightEdge, SCREEN_HEIGHT, Themes[static_cast<int>(settings3DS.Theme)].menuBottomBarTextColor, HALIGN_RIGHT, versionStr);
     
     int menuStartY = MENU_LIST_TOP;
     int maxItems = menu3dsGetListVisibleItems(*currentTab);

@@ -5,6 +5,9 @@
 
 #include <cstdio>
 #include <cstring>
+extern "C" {
+#include <3ds/font.h>
+}
 
 #include "snes9x.h"
 
@@ -32,6 +35,34 @@ static const int fontCount = sizeof(fontBitmapArray) / sizeof(fontBitmapArray[0]
 static u8 *fontBitmap;
 static u8 *fontWidth;
 static const int fontHeight = FONT_HEIGHT;
+static CFNT_s *systemFont;
+
+static bool ui3dsDecodeUtf8At(const char *text, int length, int *offset, u32 *codePoint)
+{
+    int i = *offset;
+    u8 lead = (u8)text[i];
+    int extra = (lead >= 0xC2 && lead <= 0xDF) ? 1
+              : (lead >= 0xE0 && lead <= 0xEF) ? 2
+              : (lead >= 0xF0 && lead <= 0xF4) ? 3 : 0;
+    if (extra == 0 || i + extra >= length) {
+        *codePoint = lead;
+        *offset = i + 1;
+        return false;
+    }
+    u32 cp = lead & (extra == 1 ? 0x1F : extra == 2 ? 0x0F : 0x07);
+    for (int j = 1; j <= extra; j++) {
+        u8 tail = (u8)text[i + j];
+        if ((tail & 0xC0) != 0x80) {
+            *codePoint = lead;
+            *offset = i + 1;
+            return false;
+        }
+        cp = (cp << 6) | (tail & 0x3F);
+    }
+    *codePoint = cp;
+    *offset = i + extra + 1;
+    return true;
+}
 
 static int translateX = 0;
 static int translateY = 0;
@@ -52,6 +83,8 @@ u8* g_texUploadBuffer;
 
 void ui3dsPrepare()
 {
+    fontEnsureMapped();
+    systemFont = fontGetSystemFont();
     for (int a = 0; a <= MAX_ALPHA; a++) {
         alphas4Bit[a] = (a * 15 + 4) >> 3;
     }
@@ -281,6 +314,120 @@ void ui3dsDrawRGB565_CharToFramebuffer(u16 *frameBuffer, int x, int y, int color
     }
 }
 
+static inline u8 ui3dsReadSystemGlyphPixel(const u8 *sheet, int sheetWidth, int x, int y)
+{
+    int bitIndex = (x & 1) + ((x >> 1 & 1) * 4) + ((x >> 2 & 1) * 16) + ((x >> 3) * 64)
+                 + ((y & 1) * 2) + ((y >> 1 & 1) * 8) + ((y >> 2 & 1) * 32)
+                 + ((y >> 3) * sheetWidth * 8);
+    return (sheet[bitIndex >> 1] >> ((bitIndex & 1) * 4)) & 0x0F;
+}
+
+// バイリニア補間で滑らかにサンプリングする（0.0〜15.0）
+static float ui3dsSampleSystemGlyphBilinear(const u8 *sheet, int sheetWidth,
+                                            int srcX, int srcY, int glyphW, int cellH,
+                                            float fx, float fy)
+{
+    int x0 = (int)fx;
+    int y0 = (int)fy;
+    float wx = fx - x0;
+    float wy = fy - y0;
+
+    int x1 = x0 + 1 < glyphW ? x0 + 1 : x0;
+    int y1 = y0 + 1 < cellH  ? y0 + 1 : y0;
+
+    float p00 = (x0 >= 0 && x0 < glyphW && y0 >= 0 && y0 < cellH) ? ui3dsReadSystemGlyphPixel(sheet, sheetWidth, srcX + x0, srcY + y0) : 0.0f;
+    float p10 = (x1 >= 0 && x1 < glyphW && y0 >= 0 && y0 < cellH) ? ui3dsReadSystemGlyphPixel(sheet, sheetWidth, srcX + x1, srcY + y0) : 0.0f;
+    float p01 = (x0 >= 0 && x0 < glyphW && y1 >= 0 && y1 < cellH) ? ui3dsReadSystemGlyphPixel(sheet, sheetWidth, srcX + x0, srcY + y1) : 0.0f;
+    float p11 = (x1 >= 0 && x1 < glyphW && y1 >= 0 && y1 < cellH) ? ui3dsReadSystemGlyphPixel(sheet, sheetWidth, srcX + x1, srcY + y1) : 0.0f;
+
+    float top = p00 * (1.0f - wx) + p10 * wx;
+    float bot = p01 * (1.0f - wx) + p11 * wx;
+    return top * (1.0f - wy) + bot * wy;
+}
+
+static inline bool ui3dsUseSystemFont(u32 codePoint)
+{
+    if (!systemFont) return false;
+    // 0x80〜0xFFの特殊アイコン（A/B/X/Yボタンや矢印）を除外し、英数字(0x20-0x7E)と日本語等(0x100以上)のみシステムフォントを使う
+    return (codePoint >= 0x20 && codePoint <= 0x7E) || codePoint >= 0x100;
+}
+
+// システムフォント本来の文字送り幅（プロポーショナル幅）を返す
+static int ui3dsSystemGlyphWidth(u32 codePoint)
+{
+    if (!ui3dsUseSystemFont(codePoint)) return fontWidth[(u8)codePoint];
+    int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
+    if (glyph < 0) return fontWidth[(u8)'?'];
+
+    TGLP_s *tglp = fontGetGlyphInfo(systemFont);
+    charWidthInfo_s *info = fontGetCharWidthInfo(systemFont, glyph);
+    if (!tglp || !info || !tglp->cellHeight) return 14;
+
+    const float scale = 14.5f / (float)tglp->cellHeight;
+    int w = (int)(info->charWidth * scale + 0.5f);
+    return w > 0 ? w : 14;
+}
+
+static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u32 codePoint)
+{
+    if (!ui3dsUseSystemFont(codePoint)) return 0;
+    int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
+    TGLP_s *tglp = fontGetGlyphInfo(systemFont);
+    if (glyph < 0 || !tglp || tglp->sheetFmt != GPU_A4 || !tglp->sheetData
+        || !tglp->nRows || !tglp->nLines || !tglp->cellWidth || !tglp->cellHeight)
+        return 0;
+
+    charWidthInfo_s *info = fontGetCharWidthInfo(systemFont, glyph);
+    if (!info) return 0;
+
+    const float scale = 14.5f / (float)tglp->cellHeight;
+    const int advanceWidth = (int)(info->charWidth * scale + 0.5f);
+    if (info->glyphWidth == 0) return advanceWidth > 0 ? advanceWidth : 5;
+
+    int perSheet = tglp->nRows * tglp->nLines;
+    int sheetIndex = glyph / perSheet;
+    if (sheetIndex >= tglp->nSheets) return 0;
+
+    int glyphInSheet = glyph % perSheet;
+    int srcX = (glyphInSheet % tglp->nRows) * (tglp->cellWidth + 1) + 1;
+    int srcY = (glyphInSheet / tglp->nRows) * (tglp->cellHeight + 1) + 1;
+    const u8 *sheet = (const u8 *)fontGetGlyphSheetTex(systemFont, sheetIndex);
+
+    int dstWidth  = (int)(info->glyphWidth * scale + 0.5f);
+    int dstHeight = 15;
+    if (dstWidth < 1) dstWidth = 1;
+
+    int offsetX = (int)(info->left * scale + 0.5f);
+    int offsetY = (fontHeight - dstHeight) / 2;
+
+    for (int dy = 0; dy < dstHeight; dy++) {
+        float fy = ((dy + 0.5f) / dstHeight) * tglp->cellHeight - 0.5f;
+        for (int dx = 0; dx < dstWidth; dx++) {
+            int px = x + offsetX + dx;
+            int py = y + offsetY + dy;
+            if (px < viewportX1 || px >= viewportX2 || py < viewportY1 || py >= viewportY2)
+                continue;
+
+            float fx = ((dx + 0.5f) / dstWidth) * info->glyphWidth - 0.5f;
+            float val = ui3dsSampleSystemGlyphBilinear(sheet, tglp->sheetWidth, srcX, srcY, info->glyphWidth, tglp->cellHeight, fx, fy);
+
+            float norm = val / 15.0f;
+            if (norm <= 0.05f) continue;
+            float boldAlpha = norm * 1.85f;
+            if (boldAlpha > 1.0f) boldAlpha = 1.0f;
+
+            int alpha = (int)(boldAlpha * MAX_ALPHA + 0.5f);
+            if (alpha <= 0) continue;
+
+            u16 outColor = (alpha >= MAX_ALPHA)
+                ? (u16)color565
+                : ui3dsBlendPixel565(color565, ui3dsGetPixelInline(frameBuffer, px, py), alpha);
+            ui3dsSetPixelInline(frameBuffer, px, py, outColor);
+        }
+    }
+    return advanceWidth > 0 ? advanceWidth : dstWidth;
+}
+
 // Upscaled texture text blends two source pixels per axis. 0 matches bilinear blur;
 // 1 narrows the filter for crisper enlarged glyphs.
 static const float UI_TEXT_UPSCALE_SHARPNESS = 0.5f;
@@ -414,16 +561,20 @@ int ui3dsGetStringWidth(const char *s, int startPos, int endPos, int destHeight)
 {
     float scale = (float)ui3dsClampDestHeight(destHeight) / fontHeight;
     int totalWidth = 0;
-    for (int i = startPos; i <= endPos; i++)
+    int length = strlen(s);
+    for (int i = startPos; i <= endPos && i < length; )
     {
-        u8 c = s[i];
-        if (c == 0)
-            break;
-
-        if (c == '\n')
-            c = ' ';
-
-        totalWidth += ui3dsCharAdvance(c, scale);
+        u32 cp;
+        int next = i;
+        ui3dsDecodeUtf8At(s, length, &next, &cp);
+        if (cp == '\n') cp = ' ';
+        if (ui3dsUseSystemFont(cp)) {
+            totalWidth += (int)(ui3dsSystemGlyphWidth(cp) * scale + 0.5f);
+        } else {
+            totalWidth += ui3dsCharAdvance((u8)cp, scale);
+        }
+        if (next - 1 > endPos) break;
+        i = next;
     }
     return totalWidth;
 }
@@ -436,16 +587,25 @@ void ui3dsEllipsize(const char *src, char *dst, size_t dstSize, int maxWidth, in
     int ellipsisWidth = ui3dsGetStringWidth(ellipsis, 0, 0xffff, destHeight);
     float scale = (float)ui3dsClampDestHeight(destHeight) / fontHeight;
 
-    // Find the ellipsis cutoff without truncating text that still fits.
+    int length = (int)strlen(src);
     int width = 0;
     int keep = -1;
-    for (int i = 0; src[i]; i++) {
-        u8 c = src[i] == '\n' ? ' ' : (u8)src[i];
-        width += ui3dsCharAdvance(c, scale);
+    for (int i = 0; i < length; ) {
+        u32 cp;
+        int next = i;
+        ui3dsDecodeUtf8At(src, length, &next, &cp);
+        if (cp == '\n') cp = ' ';
+
+        int charW = ui3dsUseSystemFont(cp)
+            ? (int)(ui3dsSystemGlyphWidth(cp) * scale + 0.5f)
+            : ui3dsCharAdvance((u8)cp, scale);
+
+        width += charW;
         if (keep < 0 && width + ellipsisWidth > maxWidth)
             keep = i;
         if (width > maxWidth)
             break;
+        i = next;
     }
 
     if (width <= maxWidth) {
@@ -453,10 +613,15 @@ void ui3dsEllipsize(const char *src, char *dst, size_t dstSize, int maxWidth, in
         return;
     }
 
-    if (keep + 1 >= static_cast<int>(dstSize))
-        keep = static_cast<int>(dstSize) - 2;
+    int ellipsisLen = (int)strlen(ellipsis);
+    if (keep + ellipsisLen >= static_cast<int>(dstSize))
+        keep = static_cast<int>(dstSize) - ellipsisLen - 1;
     if (keep < 0)
         keep = 0;
+
+    // バッファ切り詰め時にUTF-8の継続バイト(0x80〜0xBF)の途中で切れないよう文字先頭まで戻す
+    while (keep > 0 && (((u8)src[keep] & 0xC0) == 0x80))
+        keep--;
 
     memcpy(dst, src, keep);
     snprintf(dst + keep, dstSize - keep, "%s", ellipsis);
@@ -623,10 +788,23 @@ int ui3dsDrawRGB565_StringToFramebuffer(gfxScreen_t targetScreen, int absoluteX,
             fgAlpha565Color = color565;
         }
 
-        for (int i = startPos; i <= endPos; i++)
+        int length = strlen(buffer);
+        for (int i = startPos; i <= endPos && i < length; )
         {
-            u8 c = buffer[i];
-            if (c == 0) break;
+            u32 cp;
+            int next = i;
+            ui3dsDecodeUtf8At(buffer, length, &next, &cp);
+            if (cp == '\n') cp = ' ';
+            if (ui3dsUseSystemFont(cp)) {
+                int glyphWidth = ui3dsDrawSystemGlyph(fb, x, y, color565, cp);
+                if (glyphWidth > 0) {
+                    x += glyphWidth;
+                    i = next;
+                    continue;
+                }
+                cp = '?';
+            }
+            u8 c = (u8)cp;
 
             if (c == '\n') {
                 c = ' ';
@@ -635,6 +813,7 @@ int ui3dsDrawRGB565_StringToFramebuffer(gfxScreen_t targetScreen, int absoluteX,
             if (c != ' ')
                 ui3dsDrawRGB565_CharToFramebuffer(fb, x, y, color565, c);
             x += fontWidth[c];
+            i = next;
         }
     }
 
@@ -658,21 +837,32 @@ int ui3dsWrapLines(const char *buffer, int maxWidth, int *lineStart, int *lineEn
     int lineWidth = 0;
     for (int i = 0; i < slen; )
     {
-        bool forceBreak = buffer[i] == '\n';
+        u32 cp;
+        int next = i;
+        ui3dsDecodeUtf8At(buffer, slen, &next, &cp);
+        int charWidth = ui3dsUseSystemFont(cp) ? ui3dsSystemGlyphWidth(cp) : fontWidth[(u8)cp];
+
+        bool forceBreak = (cp == '\n');
         if (forceBreak)
             curEndPos = i - 1;          // empty range at line start = blank line
         else if (i != curStartPos)
         {
-            if (buffer[i] == ' ' && i > 0 && buffer[i-1] != ' ')
+            if (cp == ' ' && i > 0 && buffer[i - 1] != ' ')
                 curEndPos = i - 1;
             // Break after a dash or slash only if it still fits, else it gets clipped.
-            else if ((buffer[i] == '-' || buffer[i] == '/') &&
-                     lineWidth + fontWidth[(unsigned char)buffer[i]] <= maxWidth)
+            else if ((cp == '-' || cp == '/') && lineWidth + charWidth <= maxWidth)
                 curEndPos = i;
+            // For multi-byte characters (e.g. Japanese), allow line break at any character boundary.
+            else if (cp >= 0x100 && lineWidth + charWidth <= maxWidth)
+                curEndPos = next - 1;
         }
-        lineWidth += fontWidth[(unsigned char)buffer[i]];
+        lineWidth += charWidth;
         if (forceBreak || lineWidth > maxWidth)
         {
+            // Prevent infinite loop if a single character exceeds maxWidth.
+            if (curEndPos < curStartPos)
+                curEndPos = next - 1;
+
             lineStart[strLineCount] = curStartPos;
             lineEnd[strLineCount] = curEndPos;
             strLineCount++;
@@ -686,10 +876,10 @@ int ui3dsWrapLines(const char *buffer, int maxWidth, int *lineStart, int *lineEn
             else
             {
                 i = curEndPos + 1;
-                while (buffer[i] == ' ')
+                while (i < slen && buffer[i] == ' ')
                     i++;
                 // The wrap already ended this line, so a \n here adds no blank line.
-                if (buffer[i] == '\n')
+                if (i < slen && buffer[i] == '\n')
                     i++;
             }
             curStartPos = i;
@@ -697,7 +887,7 @@ int ui3dsWrapLines(const char *buffer, int maxWidth, int *lineStart, int *lineEn
             lineWidth = 0;
         }
         else
-            i++;
+            i = next;
     }
 
     curEndPos = slen - 1;
