@@ -345,10 +345,17 @@ static float ui3dsSampleSystemGlyphBilinear(const u8 *sheet, int sheetWidth,
     return top * (1.0f - wy) + bot * wy;
 }
 
+static inline bool ui3dsUseSystemFont(u32 codePoint)
+{
+    if (!systemFont) return false;
+    // 半角スペース〜チルダ（英数字・記号）および 0xA0以上の多言語文字をシステムフォントで描画
+    return (codePoint >= 0x20 && codePoint <= 0x7E) || codePoint >= 0xA0;
+}
+
 // システムフォント本来の文字送り幅（プロポーショナル幅）を返す
 static int ui3dsSystemGlyphWidth(u32 codePoint)
 {
-    if (!systemFont || codePoint < 0x80) return fontWidth[(u8)codePoint];
+    if (!ui3dsUseSystemFont(codePoint)) return fontWidth[(u8)codePoint];
     int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
     if (glyph < 0) return fontWidth[(u8)'?'];
 
@@ -356,7 +363,6 @@ static int ui3dsSystemGlyphWidth(u32 codePoint)
     charWidthInfo_s *info = fontGetCharWidthInfo(systemFont, glyph);
     if (!tglp || !info || !tglp->cellHeight) return 14;
 
-    // mGBAと同じくらいの存在感になるよう14.5px基準でスケーリング
     const float scale = 14.5f / (float)tglp->cellHeight;
     int w = (int)(info->charWidth * scale + 0.5f);
     return w > 0 ? w : 14;
@@ -364,7 +370,7 @@ static int ui3dsSystemGlyphWidth(u32 codePoint)
 
 static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u32 codePoint)
 {
-    if (!systemFont || codePoint < 0x80) return 0;
+    if (!ui3dsUseSystemFont(codePoint)) return 0;
     int glyph = fontGlyphIndexFromCodePoint(systemFont, codePoint);
     TGLP_s *tglp = fontGetGlyphInfo(systemFont);
     if (glyph < 0 || !tglp || tglp->sheetFmt != GPU_A4 || !tglp->sheetData
@@ -376,7 +382,7 @@ static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u3
 
     const float scale = 14.5f / (float)tglp->cellHeight;
     const int advanceWidth = (int)(info->charWidth * scale + 0.5f);
-    if (info->glyphWidth == 0) return advanceWidth > 0 ? advanceWidth : 7;
+    if (info->glyphWidth == 0) return advanceWidth > 0 ? advanceWidth : 5;
 
     int perSheet = tglp->nRows * tglp->nLines;
     int sheetIndex = glyph / perSheet;
@@ -405,7 +411,6 @@ static int ui3dsDrawSystemGlyph(u16 *frameBuffer, int x, int y, int color565, u3
             float fx = ((dx + 0.5f) / dstWidth) * info->glyphWidth - 0.5f;
             float val = ui3dsSampleSystemGlyphBilinear(sheet, tglp->sheetWidth, srcX, srcY, info->glyphWidth, tglp->cellHeight, fx, fy);
 
-            // 輪郭の半透明部分を強く引き上げてmGBAのような太い文字にする
             float norm = val / 15.0f;
             if (norm <= 0.05f) continue;
             float boldAlpha = norm * 1.85f;
@@ -778,7 +783,8 @@ int ui3dsDrawRGB565_StringToFramebuffer(gfxScreen_t targetScreen, int absoluteX,
             u32 cp;
             int next = i;
             bool validUtf8 = ui3dsDecodeUtf8At(buffer, length, &next, &cp);
-            if (validUtf8 && cp >= 0x80) {
+            if (cp == '\n') cp = ' ';
+            if (ui3dsUseSystemFont(cp)) {
                 int glyphWidth = ui3dsDrawSystemGlyph(fb, x, y, color565, cp);
                 if (glyphWidth > 0) {
                     x += glyphWidth;
