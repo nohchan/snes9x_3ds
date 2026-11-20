@@ -782,7 +782,7 @@ int ui3dsDrawRGB565_StringToFramebuffer(gfxScreen_t targetScreen, int absoluteX,
         {
             u32 cp;
             int next = i;
-            bool validUtf8 = ui3dsDecodeUtf8At(buffer, length, &next, &cp);
+            ui3dsDecodeUtf8At(buffer, length, &next, &cp);
             if (cp == '\n') cp = ' ';
             if (ui3dsUseSystemFont(cp)) {
                 int glyphWidth = ui3dsDrawSystemGlyph(fb, x, y, color565, cp);
