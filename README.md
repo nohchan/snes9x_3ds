@@ -21,7 +21,7 @@
     <td width="50%" align="center"><img src="screenshots/retroarch-pause-screen.png" alt="Super Mario World" valign="bottom"></td>
   </tr>
   <tr>
-    <td valign="top" width="50%" align="center">Start screen, "Game Thumbnail" option enabled</td>
+    <td valign="top" width="50%" align="center">Start screen, "Game Title" option enabled</td>
     <td valign="top" width="50%" align="center">Pause screen, per-game overlay enabled</td>
   </tr>
   <tr><td colspan="2"></td></tr>
@@ -60,6 +60,7 @@
 
 * The Snes9x team for the SNES emulator core, and the libretro Snes9x core maintainers for ongoing reference work
 * bubble2k, original author of [snes9x_3ds](https://github.com/bubble2k16/snes9x_3ds), for creating the excellent base this fork builds on
+* matbo87, [snes9x_3ds](https://github.com/matbo87/snes9x_3ds), for creating the excellent base this fork builds on
 * Wyatt-James for the SuperFX optimizations and fixes ([#85](https://github.com/matbo87/snes9x_3ds/pull/85)), and for the safety, audio and stability fixes adapted from the [snes9x_3ds fork](https://github.com/Wyatt-James/snes9x_3ds)
 * ramzinouri's [snes9x_3ds fork](https://github.com/ramzinouri/snes9x_3ds) inspired the image border/background and theme support
 * willjow's [snes9x_3ds fork](https://github.com/willjow/snes9x_3ds) revived the project after development had gone quiet
