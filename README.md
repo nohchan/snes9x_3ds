@@ -19,7 +19,7 @@
     <td width="50%" align="center"><img src="screenshots/retroarch-pause-screen.png" alt="Super Mario World" valign="bottom"></td>
   </tr>
   <tr>
-    <td valign="top" width="50%" align="center">Start screen, 日本語ファイル名表示</td>
+    <td valign="top" width="50%" align="center">日本語ファイル名表示, Title enabled</td>
     <td valign="top" width="50%" align="center">Pause screen, per-game overlay enabled</td>
   </tr>
   <tr><td colspan="2"></td></tr>
