@@ -232,9 +232,9 @@ const char *settings3dsGetAppVersion(const char *prefix) {
     static char version[64];
  
     if (VERSION_MICRO > 0) {
-        snprintf(version, sizeof(version), "%s%d.%d.%d", prefix, VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO);
+        snprintf(version, sizeof(version), "%s%d.%d.%d+", prefix, VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO);
     } else {
-        snprintf(version, sizeof(version), "%s%d.%d", prefix, VERSION_MAJOR, VERSION_MINOR);
+        snprintf(version, sizeof(version), "%s%d.%d+", prefix, VERSION_MAJOR, VERSION_MINOR);
     }
 
     return version;
