@@ -15,8 +15,8 @@
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/dark-mode-file-menu.png" alt="Start screen" valign="bottom"></td>
-    <td width="50%" align="center"><img src="screenshots/retroarch-pause-screen.png" alt="Super Mario World" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/super-mario-world-game-launch.gif" alt="Selecting and launching Super Mario World" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/donkey-kong-country-retroachievements.gif" alt="Donkey Kong Country gameplay" valign="bottom"></td>
   </tr>
   <tr>
     <td valign="top" width="50%" align="center">日本語ファイル名表示, Title enabled</td>
@@ -25,31 +25,43 @@
   <tr><td colspan="2"></td></tr>
   <tr></tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/aladdin-pp-cheats.png" alt="Aladdin" valign="bottom"></td>
-    <td width="50%" align="center"><img src="screenshots/dkc-hotkeys.png" alt="Donkey Kong Country" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/mega-man-x-cheats.png" alt="Mega Man X gameplay" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/international-superstar-soccer-deluxe-screen-swap.png" alt="International Superstar Soccer Deluxe on the lower screen" valign="bottom"></td>
   </tr>
   <tr>
-    <td valign="top" width="50%" align="center">Cropped top & bottom, cheats enabled</td>
-    <td valign="top" width="50%" align="center">Applied hotkeys</td>
+    <td valign="top" width="50%" align="center"><strong>Cheats enabled</strong><br>Mega Man X</td>
+    <td valign="top" width="50%" align="center"><strong>Screen swap</strong><br>International Superstar Soccer Deluxe</td>
   </tr>
   <tr><td colspan="2"></td></tr>
   <tr></tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/sf2-cropped-border-cover.png" alt="Super Street Fighter II" valign="bottom"></td>
-    <td width="50%" align="center"><img src="screenshots/issd-screen-swap.png" alt="International Superstar Soccer Deluxe" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/killer-instinct-arcade-edition-msu1-fmv.gif" alt="Killer Instinct: Arcade Edition intro" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/secret-of-mana-enhanced-resolution.gif" alt="Secret of Mana text sharpness comparison" valign="bottom"></td>
   </tr>
   <tr>
-    <td valign="top" width="50%" align="center">Crop & overscan, scanlines enabled</td>
-    <td valign="top" width="50%" align="center">Swapped screen</td>
- </tr>
- <tr>
-    <td width="50%" align="center"><img src="screenshots/tg2-hdma.png" alt="Top Gear II" valign="bottom"></td>
-    <td width="50%" align="center"><img src="screenshots/savestate-preview-bsx.png" alt="Excitebike - Bunbun Mario Battle" valign="bottom"></td>
+    <td valign="top" width="50%" align="center"><strong>MSU-1 video playback</strong><br>Killer Instinct: Arcade Edition</td>
+    <td valign="top" width="50%" align="center"><strong>Enhanced Resolution: Off vs. 2x Screen</strong><br>Secret of Mana</td>
+  </tr>
+  <tr><td colspan="2"></td></tr>
+  <tr></tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/super-mario-world-per-game-overlay.png" alt="Super Mario World with a custom overlay" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/super-street-fighter-ii-crop-overscan-scanlines.png" alt="Super Street Fighter II with scanlines" valign="bottom"></td>
   </tr>
   <tr>
-    <td valign="top" width="50%" align="center">In-Frame Palette Changes enabled</td>
-    <td valign="top" width="50%" align="center">BS-X game, savestate preview</td>
- </tr>
+    <td valign="top" width="50%" align="center"><strong>Per-game overlay</strong><br>Super Mario World</td>
+    <td valign="top" width="50%" align="center"><strong>Crop, overscan and scanlines</strong><br>Super Street Fighter II</td>
+  </tr>
+  <tr><td colspan="2"></td></tr>
+  <tr></tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/top-gear-ii-in-frame-palette-changes.png" alt="Top Gear II gameplay" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/excitebike-bunbun-mario-battle-bsx.png" alt="Excitebike – Bunbun Mario Battle gameplay" valign="bottom"></td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%" align="center"><strong>In-Frame Palette Changes enabled</strong><br>Top Gear II</td>
+    <td valign="top" width="50%" align="center"><strong>BS-X support</strong><br>Excitebike – Bunbun Mario Battle</td>
+  </tr>
  </table>
  <br>
 
