@@ -752,7 +752,7 @@ void makeEmulatorMenu(std::vector<SMenuItem>& items, std::vector<SMenuTab>& menu
     }, MenuItemType::Action, "  Exit Emulator", "");
 
     AddMenuSpacer(items);
-    std::string info = std::string(settings3dsGetAppVersion("  Snes9x for 3DS v")) + " \267 github.com/matbo87/snes9x_3ds";
+    std::string info = std::string(settings3dsGetAppVersion("  Snes9x for 3DS v")) + " \267 github.com/nohchan/snes9x_3ds";
     AddMenuNote(items, info);
 }
 
