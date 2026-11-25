@@ -15,7 +15,7 @@
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/super-mario-world-game-launch.gif" alt="Selecting and launching Super Mario World" valign="bottom"></td>
+    <td width="50%" align="center"><img src="screenshots/dark-mode-file-menu.png" alt="Select" valign="bottom"></td>
     <td width="50%" align="center"><img src="screenshots/donkey-kong-country-retroachievements.gif" alt="Donkey Kong Country gameplay" valign="bottom"></td>
   </tr>
   <tr>
